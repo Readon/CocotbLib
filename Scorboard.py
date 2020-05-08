@@ -1,4 +1,8 @@
-from Queue import Queue
+
+try:
+    from Queue import Queue
+except ModuleNotFoundError:
+    from queue import Queue
 
 import cocotb
 from cocotb.result import TestFailure
