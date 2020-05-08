@@ -1,9 +1,15 @@
 import random
 
 import cocotb
+from cocotb.binary import BinaryValue
+from cocotb.decorators import coroutine
 from cocotb.result import TestFailure
 from cocotb.triggers import Timer, RisingEdge
 
+
+def cocotbXHack():
+    BinaryValue._resolve_to_0     = BinaryValue._resolve_to_0  + BinaryValue._resolve_to_error
+    BinaryValue._resolve_to_error = ""
 
 def log2Up(value):
     return value.bit_length()-1
@@ -23,6 +29,13 @@ def randSignal(that):
 def randBoolSignal(that,prob):
     that <= (random.random() < prob)
 
+
+@coroutine
+def clockedWaitTrue(clk,that):
+    while True:
+        yield RisingEdge(clk)
+        if that == True:
+            break
 
 def assertEquals(a, b, name):
     if int(a) != int(b):
@@ -52,6 +65,10 @@ def setBit(v, index, x):
   if x:
     v |= mask
   return v
+
+def testBit(int_type, offset):
+   mask = 1 << offset
+   return (int_type & mask) != 0
 
 def uint(signal):
     return signal.value.integer
@@ -100,12 +117,14 @@ class BoolRandomizer:
     def __init__(self):
         self.prob = 0.5
         self.counter = 0
+        self.probLow = 0.1
+        self.probHigh = 0.9
 
     def get(self):
         self.counter += 1
         if self.counter == 100:
             self.counter = 0
-            self.prob = random.uniform(0.1, 0.9)
+            self.prob = random.uniform(self.probLow, self.probHigh)
         return random.random() < self.prob
 
 
@@ -202,7 +221,7 @@ def StreamReader(streamName, onTransaction, handle, dut, clk):
 class Bundle:
     def __init__(self,dut,name):
         self.nameToElement = {}
-        self.elements = [a for a in dut if (a._name.startswith(name + "_") and not a._name.endswith("_readableBuffer"))]
+        self.elements = [a for a in dut if (a._name.lower().startswith(name.lower() + "_") and not a._name.lower().endswith("_readablebuffer"))]
 
         for e in [a for a in dut if a._name == name]:
             self.elements.append(e)
@@ -242,3 +261,27 @@ def readIHex(path, callback,context):
                     offset = int(line[9:13], 16)
                 else:
                     pass
+
+
+
+@coroutine
+def TriggerAndCond(trigger, cond):
+    while(True):
+        yield trigger
+        if cond:
+            break
+
+
+@coroutine
+def waitClockedCond(clk, cond):
+    while(True):
+        yield RisingEdge(clk)
+        if cond():
+            break
+
+
+
+@coroutine
+def TimerClk(clk, count):
+    for i in xrange(count):
+        yield RisingEdge(clk)

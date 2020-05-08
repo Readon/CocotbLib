@@ -2,7 +2,7 @@
 import cocotb
 import types
 from cocotb.result import TestFailure
-from cocotb.triggers import RisingEdge, Timer
+from cocotb.triggers import RisingEdge, Timer, Event
 from cocotblib.Phase import Infrastructure, PHASE_WAIT_TASKS_END
 from cocotblib.Scorboard import ScorboardInOrder
 
@@ -11,9 +11,39 @@ from cocotblib.misc import Bundle, BoolRandomizer
 
 class Stream:
     def __init__(self, dut, name):
-        self.valid = dut.__getattr__(name + "_valid")
-        self.ready = dut.__getattr__(name + "_ready")
+        self.valid   = dut.__getattr__(name + "_valid")
+        self.ready   = dut.__getattr__(name + "_ready")
         self.payload = Bundle(dut,name + "_payload")
+        # Event
+        self.event_ready = Event()
+        self.event_valid = Event()
+
+    def startMonitoringReady(self, clk):
+        self.clk  = clk
+        self.fork_ready = cocotb.fork(self.monitor_ready())
+
+    def startMonitoringValid(self, clk):
+        self.clk  = clk
+        self.fork_valid = cocotb.fork(self.monitor_valid())
+
+    def stopMonitoring(self):
+        self.fork_ready.kill()
+        self.fork_valid.kill()
+
+    @cocotb.coroutine
+    def monitor_ready(self):
+        while True:
+            yield RisingEdge(self.clk)
+            if int(self.ready) == 1:
+                self.event_ready.set( self.payload )
+
+    @cocotb.coroutine
+    def monitor_valid(self):
+        while True:
+            yield RisingEdge(self.clk)
+            if int(self.valid) == 1:
+                self.event_valid.set( self.payload )
+
 
 class Transaction(object):
     def __init__(self):
@@ -26,10 +56,11 @@ class Transaction(object):
         object.__setattr__(self,key,value)
 
     def equalRef(self,ref):
-        if(len(self._nameToElement) != len(ref._nameToElement)):
-            return False
+        # if(len(self._nameToElement) != len(ref._nameToElement)):
+        #     return False
         for name in self._nameToElement:
-            if self._nameToElement[name] != getattr(ref,name):
+            refValue = getattr(ref,name)
+            if refValue != None and self._nameToElement[name] != getattr(ref,name):
                 return False
         return True
 
@@ -45,7 +76,8 @@ class Transaction(object):
             if len(n) > biggerName:
                 biggerName = len(n)
         for name in self._nameToElement:
-            buffer += "%s %s: 0x%x\n" % (name," "*(biggerName-len(name)),self._nameToElement[name])
+            e = self._nameToElement[name]
+            buffer += "%s %s: 0x%x\n" % (name," "*(biggerName-len(name)), 0 if e == None else e)
         return buffer
 
 # Transaction = type('Transaction', (object,), {})
@@ -94,16 +126,16 @@ class StreamDriverSlave:
         self.stream = stream
         self.clk = clk
         self.reset = reset
+        self.randomizer = BoolRandomizer()
         cocotb.fork(self.stim())
 
     @cocotb.coroutine
     def stim(self):
         stream = self.stream
         stream.ready <= 1
-        randomizer = BoolRandomizer()
         while True:
             yield RisingEdge(self.clk)
-            stream.ready <= randomizer.get()
+            stream.ready <= self.randomizer.get()
 
 
 def TransactionFromBundle(bundle):
