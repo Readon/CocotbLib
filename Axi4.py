@@ -84,7 +84,7 @@ class Axi4SharedMemoryChecker(Infrastructure):
         self.reservedAddresses.pop(ref,None)
 
     def isAddressRangeBusy(self,start,end):
-        for r in self.reservedAddresses.itervalues():
+        for r in self.reservedAddresses.values():
             if start < r[1] and end > r[0]:
                 return True
         return False
