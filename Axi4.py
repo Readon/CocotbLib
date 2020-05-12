@@ -55,7 +55,8 @@ class Axi4SharedMemoryChecker(Infrastructure):
     def __init__(self,name,parent,axi,addressWidth,clk,reset):
         Infrastructure.__init__(self,name,parent)
         self.axi = axi
-        self.idWidth = len(axi.arw.payload.hid)
+        if hasattr(axi.arw.payload, "hid"):
+            self.idWidth = len(axi.arw.payload.hid)
         self.addressWidth = addressWidth
         self.dataWidth = len(axi.w.payload.data)
         self.maxDataBytes = int(log2Up(self.dataWidth)/8)
@@ -191,10 +192,12 @@ class Axi4SharedMemoryChecker(Infrastructure):
             return self.writeTasks.get()
 
     def onWriteRsp(self,trans):
-        self.writeRspScoreboard.uutPush(trans,trans.hid)
+        if hasattr(trans, "hid"):
+            self.writeRspScoreboard.uutPush(trans,trans.hid)
 
     def onReadRsp(self, trans):
-        self.readRspScoreboard.uutPush(trans, trans.hid)
+        if hasattr(trans, "hid"):
+            self.readRspScoreboard.uutPush(trans, trans.hid)
         if trans.data != 0:
             self.nonZeroReadRspCounter += 1
             if self.nonZeroReadRspCounter % 50 == 0:
