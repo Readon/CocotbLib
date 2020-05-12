@@ -243,6 +243,7 @@ class Bundle:
         if name not in self.nameToElement:
             for e in self.nameToElement:
                 print(e)
+            raise AttributeError(name + " is not in this object.")
         return self.nameToElement[name]
 
 
