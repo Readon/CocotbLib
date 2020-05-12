@@ -6,13 +6,15 @@ from cocotb.decorators import coroutine
 from cocotb.result import TestFailure
 from cocotb.triggers import Timer, RisingEdge
 
+from math import ceil, log2
+
 
 def cocotbXHack():
     BinaryValue._resolve_to_0     = BinaryValue._resolve_to_0  + BinaryValue._resolve_to_error
     BinaryValue._resolve_to_error = ""
 
 def log2Up(value):
-    return value.bit_length()-1
+    return 1 << ceil(log2(value))
 
 def randInt(min,max):
     return random.randint(min, max)
